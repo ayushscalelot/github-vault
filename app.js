@@ -339,6 +339,8 @@ function initSetupWizard() {
         github_repo:        repo,
         github_path:        'vault.enc',
         quick_unlock_type:  quickType,
+        // Store exact PIN length so unlock screen waits for the right number of digits
+        pin_length: quickType === 'pin' ? quickSecret.length : null,
       };
       saveConfig(config);
 
@@ -401,7 +403,8 @@ function showFullUnlock(quickType) {
     numpad.id        = 'unlock-numpad';
     wrap.appendChild(display);
     wrap.appendChild(numpad);
-    unlockPinFull = new PinInput({ displayId: 'unlock-pin-display', numpadId: 'unlock-numpad' });
+    const pinLen = state.config?.pin_length || 4;
+    unlockPinFull = new PinInput({ displayId: 'unlock-pin-display', numpadId: 'unlock-numpad', minLen: pinLen, maxLen: pinLen });
   } else {
     const label = document.createElement('p');
     label.className   = 'hint small';
@@ -450,9 +453,12 @@ function showQuickOnlyUnlock(quickType) {
     center.appendChild(display);
     center.appendChild(numpad);
     wrap.appendChild(center);
+    const pinLen = state.config?.pin_length || 4;
     unlockPinQuick = new PinInput({
       displayId:  'unlock-quick-pin-display',
       numpadId:   'unlock-quick-numpad',
+      minLen:     pinLen,
+      maxLen:     pinLen,
       onComplete: pin => handleQuickUnlock(pin),
     });
   } else {
