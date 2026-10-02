@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🔐 Vault</title>
+  <meta name="description" content="Personal zero-knowledge password manager" />
+  <meta name="theme-color" content="#0d0d14" />
+
+  <!-- PWA manifest (create manifest.json to enable install) -->
+  <!-- <link rel="manifest" href="manifest.json" /> -->
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SCREEN: Loading
+  ════════════════════════════════════════════════════════════════════════ -->
+  <div id="screen-loading" class="screen active">
+    <div class="loading-inner">
+      <div class="logo">🔐</div>
+      <div class="spinner"></div>
+      <p id="loading-msg">Starting...</p>
+    </div>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SCREEN: Setup Wizard (first-run)
+  ════════════════════════════════════════════════════════════════════════ -->
+  <div id="screen-setup" class="screen">
+    <div class="setup-container">
+
+      <div class="setup-header">
+        <div class="logo">🔐</div>
+        <h1>Set Up Your Vault</h1>
+        <div class="step-dots">
+          <span class="step-dot active" data-step="1"></span>
+          <span class="step-dot"        data-step="2"></span>
+          <span class="step-dot"        data-step="3"></span>
+        </div>
+      </div>
+
+      <!-- ── Step 1: Master Password ──────────────────────────────────── -->
+      <div class="setup-step" id="setup-step-1">
+        <h2>Create Master Password</h2>
+        <p class="hint">
+          This is the <strong>only</strong> password you need to remember.
+          There is no "Forgot Password" — do not lose it.
+        </p>
+
+        <div class="field">
+          <label>Master Password</label>
+          <div class="input-wrap">
+            <input type="password" id="setup-master-pw"
+                   placeholder="Enter a strong passphrase"
+                   autocomplete="new-password" />
+            <button class="toggle-pw" data-target="setup-master-pw">👁</button>
+          </div>
+        </div>
+
+        <div class="strength-bar-wrap">
+          <div class="strength-bar" id="pw-strength-bar"></div>
+        </div>
+        <p class="strength-label" id="pw-strength-label">&nbsp;</p>
+
+        <div class="field">
+          <label>Confirm Password</label>
+          <div class="input-wrap">
+            <input type="password" id="setup-master-pw-confirm"
+                   placeholder="Repeat your password"
+                   autocomplete="new-password" />
+            <button class="toggle-pw" data-target="setup-master-pw-confirm">👁</button>
+          </div>
+        </div>
+
+        <p class="error-msg hidden" id="setup-step1-error"></p>
+        <button class="btn-primary" id="setup-step1-next">Continue →</button>
+      </div>
+
+
+      <!-- ── Step 2: Quick Unlock (PIN or Pattern) ────────────────────── -->
+      <div class="setup-step hidden" id="setup-step-2">
+        <h2>Quick Unlock</h2>
+        <p class="hint">
+          Choose how to re-lock and quickly unlock your vault within the same
+          browser session — without retyping your full master password.
+        </p>
+
+        <div class="toggle-group" id="quick-type-toggle">
+          <button class="toggle-opt active" data-type="pin">🔢 PIN Code</button>
+          <button class="toggle-opt"        data-type="pattern">⬛ Pattern</button>
+        </div>
+
+        <!-- PIN -->
+        <div id="setup-pin-wrap">
+          <p class="hint small">Enter a 4–8 digit PIN</p>
+          <div class="pin-dots" id="setup-pin-display"></div>
+          <div class="numpad"   id="setup-numpad"></div>
+        </div>
+
+        <!-- Pattern -->
+        <div id="setup-pattern-wrap" class="hidden">
+          <p class="hint small">Draw a pattern connecting at least 4 dots</p>
+          <canvas id="setup-pattern-canvas" width="220" height="220"></canvas>
+          <button class="btn-link" id="setup-pattern-reset">↺ Reset Pattern</button>
+        </div>
+
+        <p class="error-msg hidden" id="setup-step2-error"></p>
+        <button class="btn-primary hidden" id="setup-step2-next">Continue →</button>
+      </div>
+
+
+      <!-- ── Step 3: GitHub Storage ───────────────────────────────────── -->
+      <div class="setup-step hidden" id="setup-step-3">
+        <h2>GitHub Storage</h2>
+        <p class="hint">
+          Your encrypted vault will be committed to a GitHub repository.
+          Create a <strong>public</strong> repo for your vault (e.g.
+          <code>my-vault</code>) and generate a fine-grained PAT with
+          <strong>Contents: Read &amp; Write</strong> on that repo.
+        </p>
+
+        <div class="field">
+          <label>GitHub Username</label>
+          <input type="text" id="setup-gh-owner"
+                 placeholder="your-username" autocomplete="off" spellcheck="false" />
+        </div>
+
+        <div class="field">
+          <label>Repository Name</label>
+          <input type="text" id="setup-gh-repo"
+                 placeholder="my-vault" autocomplete="off" spellcheck="false" />
+        </div>
+
+        <div class="field">
+          <label>Personal Access Token (PAT)</label>
+          <div class="input-wrap">
+            <input type="password" id="setup-gh-pat"
+                   placeholder="github_pat_..." autocomplete="off" />
+            <button class="toggle-pw" data-target="setup-gh-pat">👁</button>
+          </div>
+          <p class="hint small">
+            <a href="https://github.com/settings/tokens?type=beta" target="_blank"
+               rel="noopener noreferrer">
+              → Create a fine-grained PAT on GitHub
+            </a>
+            — scope it to this repo, Contents: Read &amp; Write only.
+          </p>
+        </div>
+
+        <p class="error-msg hidden" id="setup-step3-error"></p>
+        <button class="btn-primary" id="setup-step3-next">Create Vault ✨</button>
+      </div>
+
+
+      <!-- ── Step 4: Success ──────────────────────────────────────────── -->
+      <div class="setup-step hidden" id="setup-step-4">
+        <div class="success-icon">✅</div>
+        <h2>Vault Created!</h2>
+        <p class="hint">
+          Your encrypted vault has been committed to GitHub.
+          Bookmark this page — it's your password manager.
+        </p>
+        <button class="btn-primary" id="setup-done-btn">Open Vault →</button>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SCREEN: Unlock
+  ════════════════════════════════════════════════════════════════════════ -->
+  <div id="screen-unlock" class="screen">
+    <div class="unlock-container">
+      <div class="logo">🔐</div>
+      <h1>Vault</h1>
+
+      <!-- Full unlock: master password + quick secret -->
+      <div id="unlock-full" style="width:100%">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="field">
+            <label>Master Password</label>
+            <div class="input-wrap">
+              <input type="password" id="unlock-master-pw"
+                     placeholder="Enter master password"
+                     autocomplete="current-password" />
+              <button class="toggle-pw" data-target="unlock-master-pw">👁</button>
+            </div>
+          </div>
+
+          <!-- Quick secret input injected here by JS -->
+          <div id="unlock-quick-input-wrap"></div>
+
+          <p class="error-msg hidden" id="unlock-error"></p>
+          <button class="btn-primary" id="unlock-btn">Unlock Vault</button>
+        </div>
+      </div>
+
+      <!-- Quick-unlock only: session key cached, just need PIN/pattern -->
+      <div id="unlock-quick-only" class="hidden" style="width:100%">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:16px">
+          <p class="hint" style="text-align:center">
+            Session locked. Enter your quick unlock to continue.
+          </p>
+          <!-- Quick secret input injected here by JS -->
+          <div id="unlock-quick-only-input-wrap" style="width:100%"></div>
+          <p class="error-msg hidden" id="unlock-quick-error"></p>
+          <button class="btn-link" id="unlock-use-master-btn">
+            Use Master Password instead →
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SCREEN: Vault (main app)
+  ════════════════════════════════════════════════════════════════════════ -->
+  <div id="screen-vault" class="screen">
+
+    <header class="vault-header">
+      <div class="vault-title">
+        <span class="vault-icon">🔐</span>
+        <span>Vault</span>
+      </div>
+      <div class="vault-actions">
+        <button class="btn-icon" id="vault-add-btn"  title="Add password (A)">＋</button>
+        <button class="btn-icon" id="vault-gen-btn"  title="Password generator (G)">🎲</button>
+        <button class="btn-icon" id="vault-lock-btn" title="Lock vault (L)">🔒</button>
+      </div>
+    </header>
+
+    <div class="vault-search-wrap">
+      <input type="search" id="vault-search" placeholder="🔍  Search passwords..." />
+    </div>
+
+    <main id="vault-list" class="vault-list"></main>
+
+    <div class="sync-status" id="sync-status"></div>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       MODAL: Add / Edit entry
+  ════════════════════════════════════════════════════════════════════════ -->
+  <div id="modal-entry" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 id="modal-entry-title">Add Password</h2>
+        <button class="btn-icon modal-close" id="modal-entry-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label>Site / App Name *</label>
+          <input type="text" id="entry-name"
+                 placeholder="Google, GitHub, Bank…" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label>URL (optional)</label>
+          <input type="url" id="entry-url"
+                 placeholder="https://example.com" />
+        </div>
+        <div class="field">
+          <label>Username / Email *</label>
+          <input type="text" id="entry-username"
+                 placeholder="your@email.com" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label>Password *</label>
+          <div class="input-wrap">
+            <input type="password" id="entry-password"
+                   placeholder="Password" autocomplete="new-password" />
+            <button class="toggle-pw"         data-target="entry-password">👁</button>
+            <button class="btn-generate-inline" id="entry-gen-btn" title="Generate password">🎲</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Notes (optional)</label>
+          <textarea id="entry-notes" rows="3"
+                    placeholder="TOTP key, security questions, etc."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-danger hidden" id="modal-entry-delete">Delete</button>
+        <div class="modal-footer-right">
+          <button class="btn-secondary" id="modal-entry-cancel">Cancel</button>
+          <button class="btn-primary"   id="modal-entry-save">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       MODAL: Password Generator (standalone)
+  ════════════════════════════════════════════════════════════════════════ -->
+  <div id="modal-generator" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-box modal-box-sm">
+      <div class="modal-header">
+        <h2>Password Generator</h2>
+        <button class="btn-icon" id="modal-gen-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="gen-output">
+          <code id="gen-pw-output">—</code>
+          <button class="btn-icon" id="gen-copy-btn"    title="Copy">📋</button>
+          <button class="btn-icon" id="gen-refresh-btn" title="Regenerate">🔄</button>
+        </div>
+
+        <div class="field">
+          <label>Length: <span id="gen-length-label">20</span></label>
+          <input type="range" id="gen-length" min="8" max="64" value="20" />
+        </div>
+
+        <div class="checkbox-group">
+          <label><input type="checkbox" id="gen-upper"   checked /> Uppercase (A–Z)</label>
+          <label><input type="checkbox" id="gen-lower"   checked /> Lowercase (a–z)</label>
+          <label><input type="checkbox" id="gen-digits"  checked /> Numbers  (0–9)</label>
+          <label><input type="checkbox" id="gen-symbols" checked /> Symbols  (!@#…)</label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       Toast notification
+  ════════════════════════════════════════════════════════════════════════ -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+
+  <!-- Scripts — order matters: crypto → github → ui → app -->
+  <script src="crypto.js"></script>
+  <script src="github.js"></script>
+  <script src="ui.js"></script>
+  <script src="app.js"></script>
+
+</body>
+</html>
