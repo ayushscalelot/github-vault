@@ -403,8 +403,8 @@ function showFullUnlock(quickType) {
     numpad.id        = 'unlock-numpad';
     wrap.appendChild(display);
     wrap.appendChild(numpad);
-    const pinLen = state.config?.pin_length || 4;
-    unlockPinFull = new PinInput({ displayId: 'unlock-pin-display', numpadId: 'unlock-numpad', minLen: pinLen, maxLen: pinLen });
+    const pinLen = state.config?.pin_length || 8;
+    unlockPinFull = new PinInput({ displayId: 'unlock-pin-display', numpadId: 'unlock-numpad', minLen: 4, maxLen: pinLen });
   } else {
     const label = document.createElement('p');
     label.className   = 'hint small';
@@ -439,27 +439,40 @@ function showQuickOnlyUnlock(quickType) {
   wrap.innerHTML = '';
 
   if (quickType === 'pin') {
+    const pinLen = state.config?.pin_length || 8; // default 8 if old setup didn't save length
+
     const display = document.createElement('div');
     display.className = 'pin-dots';
     display.id        = 'unlock-quick-pin-display';
+
     const numpad = document.createElement('div');
     numpad.className = 'numpad';
     numpad.id        = 'unlock-quick-numpad';
+
+    // Explicit unlock button — no more auto-submit confusion
+    const unlockBtn = document.createElement('button');
+    unlockBtn.className   = 'btn-primary';
+    unlockBtn.textContent = 'Unlock';
+    unlockBtn.style.marginTop = '4px';
+    unlockBtn.onclick = () => handleQuickUnlock(unlockPinQuick.getPin());
+
     const center = document.createElement('div');
     center.style.display       = 'flex';
     center.style.flexDirection = 'column';
     center.style.alignItems    = 'center';
     center.style.gap           = '12px';
+    center.style.width         = '100%';
     center.appendChild(display);
     center.appendChild(numpad);
+    center.appendChild(unlockBtn);
     wrap.appendChild(center);
-    const pinLen = state.config?.pin_length || 4;
+
     unlockPinQuick = new PinInput({
-      displayId:  'unlock-quick-pin-display',
-      numpadId:   'unlock-quick-numpad',
-      minLen:     pinLen,
-      maxLen:     pinLen,
-      onComplete: pin => handleQuickUnlock(pin),
+      displayId: 'unlock-quick-pin-display',
+      numpadId:  'unlock-quick-numpad',
+      minLen:    4,        // minimum to enable button
+      maxLen:    pinLen,   // how many dots to show
+      // No onComplete — user taps the Unlock button explicitly
     });
   } else {
     const canvas = document.createElement('canvas');
