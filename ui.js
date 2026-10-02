@@ -247,8 +247,8 @@ class PatternLock {
     // Draw connection lines
     if (this.pattern.length > 0) {
       ctx.beginPath();
-      ctx.strokeStyle = this.error ? '#ff475788' : '#6c63ff88';
-      ctx.lineWidth   = 3;
+      ctx.strokeStyle = this.error ? 'rgba(255,85,85,.5)' : 'rgba(255,255,255,.2)';
+      ctx.lineWidth   = 2;
       ctx.lineJoin    = 'round';
       ctx.lineCap     = 'round';
 
@@ -267,27 +267,27 @@ class PatternLock {
     // Draw dots
     this.dots.forEach(dot => {
       const isActive = active.has(dot.idx);
-      const color    = this.error ? '#ff4757' : '#6c63ff';
+      const activeColor = this.error ? 'rgba(255,85,85,.9)' : 'rgba(255,255,255,.9)';
 
       // Outer ring
       ctx.beginPath();
-      ctx.arc(dot.x, dot.y, 16, 0, Math.PI * 2);
-      ctx.strokeStyle = isActive ? color : '#3a3a5c';
-      ctx.lineWidth   = 2;
+      ctx.arc(dot.x, dot.y, 14, 0, Math.PI * 2);
+      ctx.strokeStyle = isActive ? 'rgba(255,255,255,.3)' : 'rgba(255,255,255,.1)';
+      ctx.lineWidth   = 1;
       ctx.stroke();
 
       // Fill when active
       if (isActive) {
         ctx.beginPath();
-        ctx.arc(dot.x, dot.y, 16, 0, Math.PI * 2);
-        ctx.fillStyle = color + '22';
+        ctx.arc(dot.x, dot.y, 14, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,.05)';
         ctx.fill();
       }
 
       // Inner dot
       ctx.beginPath();
-      ctx.arc(dot.x, dot.y, isActive ? 7 : 4, 0, Math.PI * 2);
-      ctx.fillStyle = isActive ? color : '#555577';
+      ctx.arc(dot.x, dot.y, isActive ? 5 : 3, 0, Math.PI * 2);
+      ctx.fillStyle = isActive ? activeColor : 'rgba(255,255,255,.2)';
       ctx.fill();
     });
   }

@@ -643,9 +643,15 @@ function renderVaultList() {
   if (sorted.length === 0) {
     container.innerHTML = `
       <div class="vault-empty">
-        <div class="vault-empty-icon">${q ? '🔍' : '🔑'}</div>
-        <h3>${q ? 'No results for "' + escapeHtml(q) + '"' : 'Your vault is empty'}</h3>
-        <p class="hint">${q ? 'Try a different search.' : 'Click ＋ to add your first password.'}</p>
+        <div class="vault-empty-icon">
+          <svg width="32" height="32" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity=".3">
+            ${q
+              ? '<circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/>'
+              : '<circle cx="6" cy="6.5" r="3.5"/><path d="M9 9l5 5M12 12l-1.5 1.5"/>'}
+          </svg>
+        </div>
+        <h3>${q ? `No results for "${escapeHtml(q)}"` : 'Your vault is empty'}</h3>
+        <p>${q ? 'Try a different search.' : 'Press + to add your first password.'}</p>
       </div>
     `;
     return;
@@ -653,16 +659,23 @@ function renderVaultList() {
 
   container.innerHTML = '';
 
+  // SVG icon strings reused in each card
+  const svgCopy = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M2 11V2h9"/></svg>`;
+  const svgEdit = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="m11 2 3 3-8 8H3v-3l8-8z"/></svg>`;
+
   sorted.forEach(entry => {
     const card = document.createElement('div');
     card.className = 'entry-card';
     card.dataset.id = entry.id;
 
-    const fav = entry.url ? favicon(entry.url) : null;
+    // Icon: favicon if URL available, else first letter of name
+    const fav    = entry.url ? favicon(entry.url) : null;
+    const letter = escapeHtml((entry.name || '?')[0].toUpperCase());
+
     const iconContent = fav
-      ? `<img src="${fav}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
-        + `<span style="display:none;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">🔑</span>`
-      : `<span style="font-size:18px">🔑</span>`;
+      ? `<img src="${fav}" alt="" onerror="this.style.display='none';this.nextSibling.style.display='flex'">`
+        + `<span style="display:none;align-items:center;justify-content:center;width:100%;height:100%">${letter}</span>`
+      : letter;
 
     card.innerHTML = `
       <div class="entry-icon">${iconContent}</div>
@@ -671,21 +684,19 @@ function renderVaultList() {
         <div class="entry-username">${escapeHtml(entry.username)}</div>
       </div>
       <div class="entry-actions">
-        <button class="btn-icon" data-action="copy" data-id="${entry.id}" title="Copy password">📋</button>
-        <button class="btn-icon" data-action="edit" data-id="${entry.id}" title="Edit">✏️</button>
+        <button class="btn-icon" data-action="copy" data-id="${entry.id}" title="Copy password">${svgCopy}</button>
+        <button class="btn-icon" data-action="edit" data-id="${entry.id}" title="Edit">${svgEdit}</button>
       </div>
     `;
 
-    // Click card body → open edit modal
     card.addEventListener('click', e => {
-      if (e.target.closest('[data-action]')) return; // handled below
+      if (e.target.closest('[data-action]')) return;
       openEditModal(entry.id);
     });
 
     container.appendChild(card);
   });
 
-  // Action button events (using delegation already handled via card click)
   container.querySelectorAll('[data-action]').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
