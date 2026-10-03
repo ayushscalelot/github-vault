@@ -900,6 +900,28 @@ function initEventListeners() {
   ['gen-upper', 'gen-lower', 'gen-digits', 'gen-symbols'].forEach(id => {
     document.getElementById(id).addEventListener('change', regeneratePassword);
   });
+
+  // ── Import ────────────────────────────────────────────────────────────────
+  // Clicking the import button opens the OS file picker (no file ever uploads)
+  document.getElementById('vault-import-btn').addEventListener('click', () => {
+    document.getElementById('csv-file-input').click();
+  });
+
+  document.getElementById('csv-file-input').addEventListener('change', async e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      await handleCsvSelected(file);
+    } finally {
+      // Always clear the input so the same file can be re-selected if needed
+      e.target.value = '';
+    }
+  });
+
+  // ── Import modal ──────────────────────────────────────────────────────────
+  document.getElementById('modal-import-close').addEventListener('click',  () => hideModal('modal-import'));
+  document.getElementById('modal-import-cancel').addEventListener('click', () => hideModal('modal-import'));
+  document.getElementById('modal-import-confirm').addEventListener('click', confirmImport);
 }
 
 // ─── Keyboard Shortcuts ───────────────────────────────────────────────────────
@@ -910,16 +932,17 @@ function initKeyboardShortcuts() {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
     switch (e.key.toLowerCase()) {
-      case 'a': openAddModal();       break;
-      case 'g': openGeneratorModal(); break;
-      case 'l': lockVault();          break;
+      case 'a': openAddModal();                                      break;
+      case 'g': openGeneratorModal();                                break;
+      case 'i': document.getElementById('csv-file-input').click();  break;
+      case 'l': lockVault();                                         break;
     }
   });
 
   // Close modals with Escape
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-      ['modal-entry', 'modal-generator'].forEach(id => {
+      ['modal-entry', 'modal-generator', 'modal-import'].forEach(id => {
         const m = document.getElementById(id);
         if (m && m.classList.contains('visible')) hideModal(id);
       });
@@ -948,3 +971,240 @@ document.addEventListener('DOMContentLoaded', () => {
   initEventListeners();
   init();
 });
+
+// ─── CSV Import ───────────────────────────────────────────────────────────────
+//
+// Supports the Google Password Manager export format:
+//   name,url,username,password[,note]
+//
+// Also handles Bitwarden and most other managers that export a similar CSV.
+// The file is read entirely in browser memory and never sent anywhere.
+
+/** Holds parsed entries waiting for the user to confirm import. */
+let _pendingImport = [];
+
+/**
+ * Called when a CSV file is selected.
+ * Reads it in memory, parses it, shows the preview modal.
+ * @param {File} file
+ */
+async function handleCsvSelected(file) {
+  let text;
+  try {
+    text = await file.text();
+  } catch {
+    Toast.error('Could not read the file.');
+    return;
+  }
+
+  let parsed;
+  try {
+    parsed = parseGoogleCsv(text);
+  } catch (err) {
+    Toast.error(err.message);
+    return;
+  }
+
+  if (parsed.length === 0) {
+    Toast.error('No passwords found in the CSV file.');
+    return;
+  }
+
+  // Separate new entries from duplicates (same url + username already in vault)
+  const existing = state.vault?.entries || [];
+  const dupes    = new Set(existing.map(e => `${e.url}|${e.username}`));
+
+  const newEntries = parsed.filter(e => !dupes.has(`${e.url}|${e.username}`));
+  const dupCount   = parsed.length - newEntries.length;
+
+  _pendingImport = newEntries;
+
+  // ── Build preview ─────────────────────────────────────────────────────────
+  document.getElementById('import-found-msg').textContent =
+    `Found ${parsed.length} password${parsed.length !== 1 ? 's' : ''} — ${newEntries.length} new will be imported.`;
+
+  document.getElementById('import-dup-msg').textContent =
+    dupCount > 0 ? `${dupCount} already exist in your vault and will be skipped.` : '';
+
+  const confirmBtn = document.getElementById('modal-import-confirm');
+  confirmBtn.textContent = `Import ${newEntries.length} password${newEntries.length !== 1 ? 's' : ''}`;
+  confirmBtn.disabled    = newEntries.length === 0;
+
+  // Render scrollable preview list
+  const list = document.getElementById('import-preview-list');
+  list.innerHTML = '';
+
+  const allToShow = parsed.map(e => ({ ...e, isNew: !dupes.has(`${e.url}|${e.username}`) }));
+
+  allToShow.forEach(entry => {
+    const row = document.createElement('div');
+    row.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--line);
+    `;
+
+    const letter = (entry.name || '?')[0].toUpperCase();
+    row.innerHTML = `
+      <div style="
+        width: 26px; height: 26px; border-radius: 4px;
+        background: var(--bg-2); border: 1px solid var(--line2);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 11px; font-weight: 600; color: var(--t2);
+        flex-shrink: 0;
+      ">${escapeHtml(letter)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500;color:${entry.isNew ? 'var(--t1)' : 'var(--t3)'};
+                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+          ${escapeHtml(entry.name)}
+        </div>
+        <div style="font-size:12px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+          ${escapeHtml(entry.username)}
+        </div>
+      </div>
+      ${!entry.isNew ? `<span style="font-size:11px;color:var(--t3);flex-shrink:0">skip</span>` : ''}
+    `;
+    list.appendChild(row);
+  });
+
+  showModal('modal-import');
+}
+
+/**
+ * Called when the user clicks "Import N passwords" in the preview modal.
+ */
+async function confirmImport() {
+  if (_pendingImport.length === 0) return;
+
+  const btn = document.getElementById('modal-import-confirm');
+  btn.classList.add('btn-loading');
+  btn.disabled = true;
+
+  const now = new Date().toISOString();
+  const newEntries = _pendingImport.map(e => ({
+    id:         uuid(),
+    name:       e.name,
+    url:        e.url,
+    username:   e.username,
+    password:   e.password,
+    notes:      e.notes || '',
+    created_at: now,
+    updated_at: now,
+  }));
+
+  state.vault.entries.push(...newEntries);
+  _pendingImport = [];
+
+  hideModal('modal-import');
+  renderVaultList();
+  Toast.success(`Imported ${newEntries.length} password${newEntries.length !== 1 ? 's' : ''}.`);
+
+  await saveVault();
+
+  btn.classList.remove('btn-loading');
+  btn.disabled = false;
+}
+
+// ─── CSV Parser ───────────────────────────────────────────────────────────────
+
+/**
+ * Parse Google Password Manager CSV export.
+ *
+ * Google's format (columns may vary slightly):
+ *   name,url,username,password[,note]
+ *
+ * @param {string} text  raw CSV text
+ * @returns {{ name, url, username, password, notes }[]}
+ * @throws if the file doesn't look like a password CSV
+ */
+function parseGoogleCsv(text) {
+  // Normalise line endings
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
+
+  if (lines.length < 2) throw new Error('CSV file appears to be empty.');
+
+  const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase().trim());
+
+  // Find required columns — Google uses these exact names
+  const col = name => headers.indexOf(name);
+
+  const nameCol     = col('name');
+  const urlCol      = col('url');
+  const usernameCol = col('username');
+  const passwordCol = col('password');
+  const noteCol     = col('note');
+
+  if (usernameCol === -1 || passwordCol === -1) {
+    throw new Error(
+      'This doesn\'t look like a Google password export. ' +
+      'Make sure you exported from passwords.google.com and the file has username and password columns.'
+    );
+  }
+
+  const entries = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    const cols = parseCsvLine(line);
+
+    const rawUrl  = cols[urlCol]      || '';
+    const rawName = cols[nameCol]     || '';
+    const username = cols[usernameCol] || '';
+    const password = cols[passwordCol] || '';
+
+    // Derive a display name: prefer the name column, fall back to hostname
+    let name = rawName;
+    if (!name && rawUrl) {
+      try { name = new URL(rawUrl).hostname.replace(/^www\./, ''); } catch {}
+    }
+    if (!name) name = 'Unknown';
+
+    entries.push({
+      name,
+      url:   rawUrl,
+      username,
+      password,
+      notes: noteCol >= 0 ? (cols[noteCol] || '') : '',
+    });
+  }
+
+  return entries;
+}
+
+/**
+ * Parse a single CSV line, handling quoted fields and escaped quotes ("").
+ * @param {string} line
+ * @returns {string[]}
+ */
+function parseCsvLine(line) {
+  const result   = [];
+  let   current  = '';
+  let   inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch   = line[i];
+    const next = line[i + 1];
+
+    if (ch === '"') {
+      if (inQuotes && next === '"') {
+        // Escaped quote inside quoted field
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current);
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+
+  result.push(current);
+  return result;
+}

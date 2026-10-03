@@ -56,6 +56,10 @@
     <circle cx="6" cy="6.5" r="3.5"/>
     <path d="M9 9l5 5M12 12l-1.5 1.5"/>
   </symbol>
+  <symbol id="ic-upload" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 10V3M5 6l3-3 3 3"/>
+    <path d="M3 11v1.5A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5V11"/>
+  </symbol>
 </svg>
 
 <!-- helper: inline SVG icon -->
@@ -272,11 +276,17 @@
       <button class="btn-icon" id="vault-gen-btn" title="Generator (G)">
         <svg class="ic"><use href="#ic-shuffle"/></svg>
       </button>
+      <button class="btn-icon" id="vault-import-btn" title="Import from Google CSV (I)">
+        <svg class="ic"><use href="#ic-upload"/></svg>
+      </button>
       <button class="btn-icon" id="vault-lock-btn" title="Lock (L)">
         <svg class="ic"><use href="#ic-lock"/></svg>
       </button>
     </div>
   </header>
+
+  <!-- Hidden file input — triggered by the import button -->
+  <input type="file" id="csv-file-input" accept=".csv,text/csv" style="display:none" />
 
   <div class="vault-search-wrap">
     <svg class="ic search-icon"><use href="#ic-search"/></svg>
@@ -381,6 +391,40 @@
 
 <!-- Toast -->
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL — Import preview
+════════════════════════════════════════════════════════════════ -->
+<div id="modal-import" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>Import passwords</h2>
+      <button class="btn-icon" id="modal-import-close">
+        <svg class="ic"><use href="#ic-close"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <!-- Summary row -->
+      <div id="import-summary" style="display:flex;flex-direction:column;gap:6px">
+        <p id="import-found-msg" class="hint"></p>
+        <p id="import-dup-msg"   class="hint small" style="color:var(--t3)"></p>
+      </div>
+
+      <!-- Scrollable preview list -->
+      <div id="import-preview-list" style="
+        max-height: 280px;
+        overflow-y: auto;
+        border: 1px solid var(--line);
+        border-radius: var(--r);
+      "></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" id="modal-import-cancel">Cancel</button>
+      <button class="btn-primary"   id="modal-import-confirm">Import</button>
+    </div>
+  </div>
+</div>
 
 <script src="crypto.js"></script>
 <script src="github.js"></script>
